@@ -1,0 +1,148 @@
+<html>
+    <head><title>sql converter</title>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    </head>
+    <body>
+        <div id="app">
+            <div class="container-fluid">
+                <div class="form-group row">
+                    <div class="col-sm-11"><h1>SQL Converter</h1></div>
+                    <button class="btn btn-link col-sm-1"  data-toggle="modal" data-target="#myModal">Guide</button>
+                </div>
+                <textarea class="form-control" v-model="srcData" rows="4" cols="80" placeholder="copy hire"></textarea><br>
+                <div class="form-group row">
+                    <label for="srcPrefix"  class="col-sm-2 col-form-label">prefix</label>
+                    <div class="col-sm-10"><input type="text" class="form-control" v-model="srcPrefix"  rows="4" cols="80"></input></div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-sm-7"></div>
+                    <button class="form-control btn btn-primary col-sm-2" v-on:click="cnvFromSQL" >from SQL</button>
+                    <button class="form-control btn btn-primary col-sm-2 ml-2" v-on:click="cnvToSQL">to SQL</button>
+                </div>
+                <textarea class="form-control" v-model="cnvData" rows="10" readonly placeholder=""></textarea><br>
+                <div>{{msg}}</div>
+        </div>
+    </div>
+    <div class="modal" id="myModal">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">SQL &lt; - &gt; Source code converting</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <H5>SQL to Source code</H5>
+<pre>
+SELECT cmp.id
+     , MAX(cmp.sales) 
+FROM COMPANY cmp 
+WHERE cmp.groupid = '01' 
+GROUP BY cmp.id
+</pre>
+↓ from SQL ↓<br><br>
+<pre>
+sql.add("SELECT cmp.id ");
+sql.add("     , MAX(emp.a) ");
+sql.add("FROM COMPANY cmp ");
+sql.add("WHERE cmp.groupid = ? ", '01');
+sql.add("GROUP BY cmp.id ");
+</pre>
+                    <H5><br>source code to SQL</H5>
+<pre>
+sql.add("SELECT cmp.id ");
+sql.add("     , MAX(emp.a) ");
+sql.add("FROM COMPANY cmp ");
+sql.add("WHERE cmp.groupid = ? ", '01');
+sql.add("GROUP BY cmp.id ");
+</pre>
+↓ to SQL ↓<br><br>
+<pre>
+SELECT cmp.name
+     , MAX(cmp.sales) 
+FROM COMPANY cmp 
+WHERE cmp.groupid = : '01' 
+GROUP BY cmp.id
+</pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    var SqlTool = function() {
+    if (!(this instanceof SqlTool)) {
+        return new SqlTool();
+    }
+    this.cnvFromSql = function(src, prefix) {
+        var lines = src.split(/\n/);
+        var dst = '';
+        for(let i = 0; i < lines.length; i++) {
+            if (lines[i].match(/=.*'.+'/)) {
+                var target = lines[i].match(/=.*'.+'/);
+                var code = lines[i].replace(/=.*'.+'/, '= ?');
+                dst += prefix + '("' +  code + ' ",' + target[0].replace(/=/,'') + ');\n';
+            } else {
+                dst += prefix + '("' + lines[i] + ' ");\n';
+            }
+        }
+        return dst;
+    }
+    this.cnvToSql = function(src, prefix) {
+        var lines = src.split(/\n/);
+        var dst = "";
+        for(let i = 0; i < lines.length; i++) {
+            var code = lines[i].replace(prefix+'("', '');
+            if (code.match(/\"\);/)) {
+                var sql = code.replace('");','');
+                dst += sql+'\n';
+            } else {
+                var codes = code.split(/".*,/);
+                var tmp = codes[0].replace('?',':'+codes[1]);
+                dst +=  tmp.replace(');','') + '\n';
+            }
+        }
+        return dst;
+    }
+    this.copyClipboard = function(data) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(data);
+            return  "Copied to clipboard"
+        }
+    }
+}
+
+var app = new Vue({ 
+    el: '#app',
+    data: {
+        msg: '',
+        srcData: '',
+        cnvData: '',
+        srcPrefix: 'sql.add',
+    },
+    methods: {
+        cnvFromSQL: function(event) {
+            this.msg = "";
+            var tool = new SqlTool();
+            this.cnvData = tool.cnvFromSql(this.srcData, this.srcPrefix);
+            this.msg = tool.copyClipboard(this.cnvData);
+        },
+        cnvToSQL: function(event) {
+            this.msg = "";
+            var tool = new SqlTool();
+            this.cnvData = tool.cnvToSql(this.srcData, this.srcPrefix);
+            this.msg = tool.copyClipboard(this.cnvData);
+        }
+    }
+});
+
+    </script>
+    </body>
+</html>
